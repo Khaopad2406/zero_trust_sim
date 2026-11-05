@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zero Trust Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f7f9;--panel:#fff;--ink:#14202b;--mute:#5d6b78;--line:#d9dee4;--ok:#17794d;--okbg:#e4f4ec;--no:#b3261e;--nobg:#fbe9e7;--skip:#8a96a3;--acc:#2b5ce6}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f161d;--panel:#18222c;--ink:#e8edf2;--mute:#9aa8b5;--line:#2c3947;--ok:#4cc28a;--okbg:#14301f;--no:#ff8a80;--nobg:#3a1a18;--skip:#6f7d8a;--acc:#7c9bff}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "IBM Plex Sans Thai",system-ui,sans-serif}
+main{max-width:1040px;margin:0 auto;padding:32px 20px 64px}
+h1{font-size:1.7rem;margin:0 0 4px;font-weight:600}
+.sub{color:var(--mute);margin:0 0 28px;max-width:60ch}
+.grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:24px}
+@media(max-width:820px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px}
+h2{font-size:1.05rem;margin:0 0 14px;font-weight:600}
+fieldset{border:0;border-top:1px solid var(--line);margin:0;padding:14px 0 6px}
+fieldset:first-of-type{border-top:0;padding-top:0}
+legend{font-weight:600;padding:0 0 8px;font-size:.95rem}
+label{display:flex;align-items:center;gap:10px;padding:5px 0;cursor:pointer}
+select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+input[type=checkbox]{width:18px;height:18px;accent-color:var(--acc)}
+button{font:inherit;font-weight:600;border:0;border-radius:8px;padding:11px 18px;cursor:pointer;background:var(--acc);color:#fff;width:100%;margin-top:12px}
+button.ghost{background:transparent;color:var(--mute);border:1px solid var(--line);margin-top:8px}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.steps{list-style:none;margin:0;padding:0}
+.step{display:grid;grid-template-columns:28px 1fr;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.step:last-child{border-bottom:0}
+.dot{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:.8rem;font-weight:700;background:var(--line);color:var(--mute)}
+.step.ok .dot{background:var(--okbg);color:var(--ok)}
+.step.no .dot{background:var(--nobg);color:var(--no)}
+.step.skip{opacity:.55}
+.step b{display:block}
+.step small{color:var(--mute);display:block}
+.step.no small{color:var(--no)}
+.verdict{margin-top:16px;padding:16px;border-radius:8px;font-weight:600;border:1px solid var(--line)}
+.verdict.ok{background:var(--okbg);color:var(--ok);border-color:var(--ok)}
+.verdict.no{background:var(--nobg);color:var(--no);border-color:var(--no)}
+.verdict span{display:block;font-weight:400;color:var(--ink);margin-top:2px}
+.hint{color:var(--mute);margin:0}
+table{width:100%;border-collapse:collapse;font-size:.88rem;margin-top:8px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+th{color:var(--mute);font-weight:500}
+.tag-ok{color:var(--ok);font-weight:600}.tag-no{color:var(--no);font-weight:600}
+.wrap{overflow-x:auto}
+@media(prefers-reduced-motion:no-preference){.step{transition:opacity .2s}}
+</style>
+</head>
+<body>
+<main>
+<h1>Zero Trust Simulator</h1>
+<p class="sub">ลองเปลี่ยนผู้ใช้ เครื่อง และแอปปลายทาง แล้วดูว่าระบบตรวจทีละขั้นอย่างไรก่อนอนุญาตหรือปฏิเสธ</p>
+
+<div class="grid">
+<section class="panel" aria-labelledby="h-in">
+<h2 id="h-in">สถานการณ์</h2>
+
+<fieldset><legend>ผู้ใช้</legend>
+<label for="email" style="padding:0 0 6px">อีเมลที่ล็อกอิน</label>
+<select id="email">
+<option value="company">somchai@company.com (พนักงาน)</option>
+<option value="contractor">ann@partner.co (ผู้รับเหมา)</option>
+<option value="personal">somchai@gmail.com (บัญชีส่วนตัว)</option>
+</select>
+<label><input type="checkbox" id="mfa" checked> ผ่านการยืนยัน MFA</label>
+</fieldset>
+
+<fieldset><legend>เครื่อง</legend>
+<label><input type="checkbox" id="enrolled" checked> ลงทะเบียนเครื่องกับ WARP แล้ว</label>
+<label><input type="checkbox" id="disk" checked> ดิสก์เข้ารหัส (BitLocker/FileVault)</label>
+<label><input type="checkbox" id="os" checked> OS เป็นเวอร์ชันล่าสุด</label>
+<label><input type="checkbox" id="av" checked> มี EDR/Antivirus ทำงานอยู่</label>
+</fieldset>
+
+<fieldset><legend>บริบท</legend>
+<label for="country" style="padding:0 0 6px">ประเทศที่ล็อกอิน</label>
+<select id="country">
+<option value="TH">ไทย</option>
+<option value="SG">สิงคโปร์</option>
+<option value="RU">รัสเซีย (ไม่เคยใช้งาน)</option>
+</select>
+</fieldset>
+
+<fieldset><legend>แอปปลายทาง</legend>
+<select id="app" aria-label="แอปปลายทาง">
+<option value="hr">hr.company.com (ข้อมูลพนักงาน)</option>
+<option value="wiki">wiki.company.com (วิกิภายใน)</option>
+<option value="docs">docs.company.com (เอกสารสำหรับพาร์ตเนอร์)</option>
+</select>
+</fieldset>
+
+<button id="run">ขอเข้าถึงแอป</button>
+<button id="reset" class="ghost">รีเซ็ตเป็นค่าเริ่มต้น</button>
+</section>
+
+<section class="panel" aria-labelledby="h-out" aria-live="polite">
+<h2 id="h-out">ผลการตรวจ</h2>
+<p class="hint" id="empty">กด "ขอเข้าถึงแอป" เพื่อเริ่มจำลอง</p>
+<ol class="steps" id="steps"></ol>
+<div id="verdict"></div>
+<div id="logwrap" class="wrap" hidden>
+<h2 style="margin-top:22px">Access log (จำลอง)</h2>
+<table><thead><tr><th>เวลา</th><th>ผู้ใช้</th><th>แอป</th><th>ผล</th></tr></thead><tbody id="log"></tbody></table>
+</div>
+</section>
+</div>
+</main>
+
+<script>
+// นโยบายของแต่ละแอป: เปลี่ยนค่าตรงนี้เพื่อให้ตรงกับ policy จริงของคุณ
+const POLICY = {
+  hr:   {name:"hr.company.com",   domains:["company.com"],              mfa:true,  enrolled:true,  posture:["disk","os","av"], countries:["TH"]},
+  wiki: {name:"wiki.company.com", domains:["company.com"],              mfa:true,  enrolled:true,  posture:["disk"],           countries:["TH","SG"]},
+  docs: {name:"docs.company.com", domains:["company.com","partner.co"], mfa:true,  enrolled:false, posture:[],                 countries:["TH","SG","RU"]}
+};
+const EMAILS = {company:"somchai@company.com", contractor:"ann@partner.co", personal:"somchai@gmail.com"};
+const POSTURE_LABEL = {disk:"ดิสก์เข้ารหัส", os:"OS ล่าสุด", av:"EDR/Antivirus"};
+const $ = id => document.getElementById(id);
+const DEFAULTS = {email:"company", country:"TH", app:"hr"};
+const CHECKS = ["mfa","enrolled","disk","os","av"];
+
+function evaluate(){
+  const email = EMAILS[$("email").value], domain = email.split("@")[1];
+  const p = POLICY[$("app").value], country = $("country").value;
+  const on = id => $(id).checked;
+  const steps = []; let failed = false;
+  function add(title, pass, okMsg, noMsg){
+    if (failed) { steps.push({title, state:"skip", msg:"ข้าม เพราะขั้นก่อนหน้าไม่ผ่าน"}); return; }
+    steps.push({title, state: pass ? "ok" : "no", msg: pass ? okMsg : noMsg});
+    if (!pass) failed = true;
+  }
+  add("ตัวตน (Identity Provider)", p.domains.includes(domain),
+      "โดเมน " + domain + " อยู่ในรายการที่อนุญาต",
+      "โดเมน " + domain + " ไม่อยู่ในนโยบายของแอปนี้ ใช้บัญชีองค์กรแทน");
+  add("การยืนยันหลายปัจจัย (MFA)", !p.mfa || on("mfa"),
+      p.mfa ? "ผ่าน MFA แล้ว" : "แอปนี้ไม่บังคับ MFA",
+      "แอปนี้ต้องผ่าน MFA ให้ตั้ง Authenticator หรือ passkey ก่อน");
+  add("การลงทะเบียนเครื่อง (WARP)", !p.enrolled || on("enrolled"),
+      p.enrolled ? "เครื่องลงทะเบียนแล้ว" : "แอปนี้เข้าผ่านเบราว์เซอร์ได้โดยไม่ต้องลงทะเบียน",
+      "ต้องลงทะเบียนเครื่องกับ WARP ก่อน");
+  const missing = p.posture.filter(k => !on(k));
+  add("สถานะความปลอดภัยของเครื่อง", missing.length === 0,
+      p.posture.length ? "ผ่านครบ: " + p.posture.map(k => POSTURE_LABEL[k]).join(", ") : "แอปนี้ไม่ตรวจสถานะเครื่อง",
+      "ไม่ผ่าน: " + missing.map(k => POSTURE_LABEL[k]).join(", "));
+  add("บริบทความเสี่ยง (ประเทศ)", p.countries.includes(country),
+      "ล็อกอินจากประเทศที่อนุญาต (" + country + ")",
+      "ล็อกอินจากประเทศ " + country + " ซึ่งนโยบายไม่อนุญาต");
+  const allowed = !failed;
+  return {email, p, steps, allowed, reason: allowed ? "" : steps.find(s => s.state === "no").msg};
+}
+
+function render(r){
+  $("empty").hidden = true;
+  $("steps").innerHTML = r.steps.map(s =>
+    '<li class="step ' + s.state + '"><span class="dot" aria-hidden="true">' +
+    (s.state==="ok"?"✓":s.state==="no"?"✕":"–") + '</span><div><b>' + s.title +
+    '</b><small>' + s.msg + '</small></div></li>').join("");
+  $("verdict").innerHTML = r.allowed
+    ? '<div class="verdict ok">อนุญาต<span>ได้สิทธิ์เฉพาะ ' + r.p.name + ' เท่านั้น ระบบจะตรวจซ้ำต่อเนื่องระหว่างใช้งาน</span></div>'
+    : '<div class="verdict no">ปฏิเสธ<span>' + r.reason + '</span></div>';
+  const t = new Date().toLocaleTimeString("th-TH");
+  const row = document.createElement("tr");
+  row.innerHTML = "<td>" + t + "</td><td>" + r.email + "</td><td>" + r.p.name + '</td><td class="' +
+    (r.allowed ? "tag-ok\">Allow" : "tag-no\">Block") + "</td>";
+  $("log").prepend(row);
+  $("logwrap").hidden = false;
+}
+
+$("run").onclick = () => render(evaluate());
+$("reset").onclick = () => {
+  Object.entries(DEFAULTS).forEach(([k,v]) => $(k).value = v);
+  CHECKS.forEach(id => $(id).checked = true);
+  $("steps").innerHTML = ""; $("verdict").innerHTML = ""; $("empty").hidden = false;
+};
+</script>
+</body>
+</html>
